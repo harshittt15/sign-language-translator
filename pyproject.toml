@@ -1,0 +1,11 @@
+# Vercel deployment configuration.
+#
+# Vercel's Python runtime auto-detects an entrypoint from app.py, index.py,
+# server.py, main.py, wsgi.py or asgi.py (also inside src/ or app/). It found
+# src/main.py, which is the desktop OpenCV application and defines no ASGI
+# `app`, so detection has to be overridden explicitly.
+#
+# Dependencies are intentionally left to requirements.txt.
+
+[tool.vercel]
+entrypoint = "src.web_api.app:app"
