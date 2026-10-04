@@ -17,10 +17,15 @@ import os
 sys.path.insert(0, '..')
 import config
 
-NUM_LANDMARKS = config.NUM_LANDMARKS
-LANDMARK_DIMENSIONS = config.LANDMARK_DIMENSIONS
-WRIST_IDX = 0
-MIDDLE_MCP_IDX = 9
+# Normalization lives in landmarks.py so the web API can import it without
+# pulling in MediaPipe. Re-exported here so existing imports keep working.
+from landmarks import (                                        # noqa: E402
+    NUM_LANDMARKS,
+    LANDMARK_DIMENSIONS,
+    WRIST_IDX,
+    MIDDLE_MCP_IDX,
+    normalize_landmarks as _normalize_landmarks,
+)
 
 
 def center_square_crop(frame):
@@ -184,36 +189,16 @@ class HandTracker:
         """
         Normalize landmarks for model input
 
+        Delegates to landmarks.normalize_landmarks so the desktop pipeline and
+        the web API share one implementation.
+
         Args:
             landmarks: Raw landmarks from extract_landmarks()
 
         Returns:
             Normalized landmarks array
         """
-        if landmarks is None:
-            return None
-
-        normalized = []
-        for hand_landmarks in landmarks:
-            # Convert to numpy array if needed
-            if not isinstance(hand_landmarks, np.ndarray):
-                hand_landmarks = np.array(hand_landmarks)
-
-            # Reshape flat 63 values into 21 (x, y, z) points so the wrist
-            # offset and scale apply per-landmark rather than broadcasting.
-            points = hand_landmarks.reshape(NUM_LANDMARKS, LANDMARK_DIMENSIONS)
-
-            # Normalize: use the wrist (landmark 0) as reference point
-            normalized_points = points - points[WRIST_IDX]
-
-            # Scale by hand size (distance from wrist to middle finger MCP)
-            scale = np.linalg.norm(points[MIDDLE_MCP_IDX] - points[WRIST_IDX])
-            if scale > 0:
-                normalized_points = normalized_points / scale
-
-            normalized.append(normalized_points.reshape(-1))
-
-        return normalized if len(normalized) > 0 else None
+        return _normalize_landmarks(landmarks)
 
     def close(self):
         """Release MediaPipe resources"""

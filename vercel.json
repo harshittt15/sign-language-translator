@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "pip install -r requirements-web.txt",
+  "functions": {
+    "src/web_api/app.py": {
+      "excludeFiles": "{venv/**,tests/**,**/test_*.py,.pytest_cache/**,**/__pycache__/**,data/**,models/confusion_matrix.csv,*.md,requirements.txt,.github/**}"
+    }
+  }
+}

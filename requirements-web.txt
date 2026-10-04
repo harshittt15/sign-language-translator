@@ -1,0 +1,21 @@
+# Runtime dependencies for the deployed web API only.
+#
+# MediaPipe and OpenCV are deliberately absent: the browser runs
+# HandLandmarker now and posts raw landmarks, so the server only normalizes
+# and classifies. Including MediaPipe would drag in jax, jaxlib, matplotlib
+# and OpenCV, roughly 1 GB unzipped on Linux, far past Vercel's 500 MB limit.
+#
+# The desktop application still needs the full set in requirements.txt.
+
+fastapi>=0.110.0
+python-multipart>=0.0.9      # FastAPI needs this to declare the /predict form route
+
+# The model was pickled with scikit-learn 1.9.1, which has no Linux wheel.
+# 1.7.2 is the newest available for Linux cp312 and was verified to load the
+# artifact and reproduce predictions exactly: 400/400 identical, max
+# probability difference 2.2e-16. It emits InconsistentVersionWarning, which
+# is expected and harmless here.
+scikit-learn==1.7.2
+numpy>=2.0,<3
+joblib>=1.3.0
+pandas>=2.0.0                # imported at module scope by model.py

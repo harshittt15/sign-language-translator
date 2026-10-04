@@ -13,10 +13,9 @@ import time
 import uuid
 from collections import OrderedDict
 
-import cv2
-import numpy as np
-from fastapi import FastAPI, File, Form, UploadFile, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -24,9 +23,15 @@ sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
 import config
-from inference import SignLanguageInference, landmarks_to_points
+from landmark_inference import LandmarkInference
+from landmarks import flatten_landmark_dicts
 from prediction_smoother import PredictionSmoother
-from web_api.schemas import HealthResponse, PredictResponse, ModelInfoResponse
+from web_api.schemas import (
+    HealthResponse,
+    PredictResponse,
+    ModelInfoResponse,
+    PredictLandmarksRequest,
+)
 
 VERSION = "1.0.0"
 WEB_DIR = os.path.join(
@@ -42,16 +47,72 @@ app = FastAPI(
     version=VERSION,
 )
 
+def _json_safe(value):
+    """
+    Make a validation error payload serializable.
+
+    FastAPI echoes the rejected input back in the 422 body. A payload
+    containing NaN or Infinity cannot be serialized to valid JSON, so the
+    error response itself fails and the client sees a 500 instead of the 4xx
+    it should get. Replace anything non-finite with its string form.
+    """
+    if isinstance(value, float):
+        if value != value or value in (float("inf"), float("-inf")):
+            return repr(value)
+        return value
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, (str, int, bool)) or value is None:
+        return value
+    return str(value)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError):
+    """Return 422 for malformed requests, never 500."""
+    details = []
+    for err in exc.errors():
+        details.append({
+            "loc": [str(p) for p in err.get("loc", [])],
+            "msg": str(err.get("msg", "invalid value")),
+            "type": str(err.get("type", "value_error")),
+            "input": _json_safe(err.get("input")),
+        })
+    return JSONResponse(status_code=422, content={"detail": details})
+
+
 _engine = None
+_frame_engine = None
 _sessions = OrderedDict()          # session_id -> (PredictionSmoother, last_seen)
 
 
 def get_engine():
-    """Load the model lazily so importing the module stays cheap for tests."""
+    """
+    Landmark classifier. Needs only numpy and scikit-learn, so the deployed
+    bundle does not have to carry MediaPipe or OpenCV.
+    """
     global _engine
     if _engine is None:
-        _engine = SignLanguageInference()
+        _engine = LandmarkInference()
     return _engine
+
+
+def get_frame_engine():
+    """
+    Frame based pipeline, which runs MediaPipe server side.
+
+    Imported lazily and only when /predict is called. The browser now does
+    landmark detection, so production deployments do not install MediaPipe;
+    this path stays available locally for regression testing against the
+    desktop pipeline.
+    """
+    global _frame_engine
+    if _frame_engine is None:
+        from inference import SignLanguageInference
+        _frame_engine = SignLanguageInference()
+    return _frame_engine
 
 
 def _smoother_for(session_id):
@@ -109,6 +170,9 @@ def model_info():
         ],
         smoothing_window=config.PREDICTION_SMOOTHING,
         confidence_threshold=config.CONFIDENCE_THRESHOLD,
+        min_hand_detection_confidence=config.MIN_DETECTION_CONFIDENCE,
+        min_tracking_confidence=config.MIN_TRACKING_CONFIDENCE,
+        num_hands=config.MAX_NUM_HANDS,
     )
 
 
@@ -119,11 +183,26 @@ async def predict(
     want_landmarks: bool = Form(default=False),
 ):
     """
-    Run one frame through the production pipeline.
+    Run one image frame through the server side MediaPipe pipeline.
+
+    Retained for regression testing against the desktop pipeline. The deployed
+    web client uses /predict-landmarks instead, and production deployments do
+    not install MediaPipe, so this returns 503 there.
 
     The frame is decoded in memory and discarded when this call returns; it is
     never written to disk or logged.
     """
+    try:
+        import cv2
+        import numpy as np
+        eng = get_frame_engine()
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=("Frame based prediction needs MediaPipe and OpenCV, which are "
+                    "not installed in this deployment. Use /predict-landmarks."),
+        ) from exc
+
     raw = await frame.read()
     if not raw:
         raise HTTPException(status_code=400, detail="Empty frame upload")
@@ -135,18 +214,45 @@ async def predict(
     if img is None:
         raise HTTPException(status_code=400, detail="Could not decode image")
 
-    eng = get_engine()
     smoother = _smoother_for(session_id or str(uuid.uuid4()))
     result = eng.process_frame(img, smoother=smoother)
 
     landmarks = None
     if want_landmarks and result.hand_detected:
+        from landmarks import landmarks_to_points
         hands = landmarks_to_points(result.landmarks)
         if hands:
             landmarks = [[x, y] for x, y in hands[0]]
 
     payload = result.as_dict()
     payload["landmarks"] = landmarks
+    return PredictResponse(**payload)
+
+
+@app.post("/predict-landmarks", response_model=PredictResponse)
+def predict_landmarks(body: PredictLandmarksRequest):
+    """
+    Classify 21 raw hand landmarks produced by the browser.
+
+    The browser runs MediaPipe HandLandmarker on the same centred square region
+    the desktop pipeline crops to, so these coordinates mean the same thing as
+    the ones the Python pipeline produces. Normalization, scaling, prediction
+    and temporal smoothing all stay here on the server.
+
+    A null `landmarks` value means the browser saw no hand in that frame, which
+    is valid: it advances the smoother's no-hand counter.
+    """
+    eng = get_engine()
+    smoother = _smoother_for(body.session_id or str(uuid.uuid4()))
+
+    flat = None
+    if body.landmarks is not None:
+        flat = flatten_landmark_dicts([p.model_dump() for p in body.landmarks])
+
+    result = eng.predict(flat, smoother=smoother)
+
+    payload = result.as_dict()
+    payload["landmarks"] = None
     return PredictResponse(**payload)
 
 
@@ -172,3 +278,22 @@ if os.path.isdir(WEB_DIR):
     @app.get("/about")
     def about():
         return FileResponse(os.path.join(WEB_DIR, "about.html"))
+
+
+MODEL_TASK = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "models", "hand_landmarker.task")
+
+
+@app.get("/model/hand_landmarker.task")
+def hand_landmarker_model():
+    """
+    Serve the HandLandmarker bundle to the browser.
+
+    The training features were extracted with this exact model file. Letting
+    the browser fetch a different build from a public CDN risks subtly
+    different landmarks, so the same artifact is served here.
+    """
+    if not os.path.exists(MODEL_TASK):
+        raise HTTPException(status_code=404, detail="Landmark model not found")
+    return FileResponse(MODEL_TASK, media_type="application/octet-stream")

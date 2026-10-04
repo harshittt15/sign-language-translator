@@ -18,8 +18,6 @@ The desktop app keeps one; the web API keeps one per browser session.
 import os
 import sys
 import threading
-from dataclasses import dataclass
-from typing import List, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
@@ -28,40 +26,8 @@ from hand_tracker import HandTracker, center_square_crop
 from model import SignLanguageModel
 
 
-def landmarks_to_points(landmarks):
-    """
-    Convert raw landmark vectors into (x, y) pairs in [0,1] within the square
-    crop, for drawing in a browser. Takes landmarks that were already
-    extracted, so no second MediaPipe pass is needed.
-
-    Returns a list of hands, each a list of 21 (x, y) pairs.
-    """
-    if not landmarks:
-        return []
-    return [[(float(h[i]), float(h[i + 1])) for i in range(0, len(h), 3)]
-            for h in landmarks]
-
-
-@dataclass
-class InferenceResult:
-    """Outcome of running one frame through the pipeline."""
-
-    hand_detected: bool
-    raw_sign: Optional[str] = None       # this frame's prediction, unsmoothed
-    confidence: float = 0.0
-    sign: Optional[str] = None           # smoothed/accepted sign (raw if no smoother)
-    emitted: bool = False                # True only on the frame a sign is accepted
-    crop_offset: tuple = (0, 0, 0)       # (y, x, side) of the square crop
-    landmarks: Optional[List] = None     # raw landmarks, for drawing the overlay
-
-    def as_dict(self):
-        return {
-            "sign": self.sign,
-            "confidence": round(float(self.confidence), 4),
-            "hand_detected": self.hand_detected,
-            "raw_sign": self.raw_sign,
-            "emitted": self.emitted,
-        }
+from landmarks import landmarks_to_points                      # noqa: F401
+from landmark_inference import InferenceResult, LandmarkInference  # noqa: F401
 
 
 class SignLanguageInference:
