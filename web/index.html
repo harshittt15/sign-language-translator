@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Real-Time Sign Language Translator</title>
+<meta name="description" content="Translate ASL alphabet signs to text in real time using MediaPipe hand landmarks and a Random Forest classifier.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <nav class="nav">
+    <a class="brand" href="/"><span class="brand-mark">S</span> Sign Language Translator</a>
+    <div class="nav-links">
+      <a href="/translator">Translator</a>
+      <a href="/about">How it works</a>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <p class="eyebrow">ASL alphabet, 26 letters</p>
+    <h1 class="display">Sign a letter. See it typed.</h1>
+    <p class="lede">
+      Hold an ASL letter in front of your webcam and watch it appear as text.
+      Hand position is read by MediaPipe, then classified by a Random Forest
+      trained on the public ASL Alphabet dataset.
+    </p>
+    <div class="hero-actions">
+      <a class="btn btn-primary btn-lg" href="/translator">Start translating</a>
+      <a class="btn btn-secondary btn-lg" href="/about">How it works</a>
+    </div>
+  </header>
+
+  <hr class="rule">
+
+  <section class="feature-grid">
+    <div class="feature">
+      <p class="feature-num">01</p>
+      <h3>Twenty one hand landmarks</h3>
+      <p>MediaPipe locates 21 joints per hand. Each has an x, y and z coordinate,
+         giving 63 numbers that describe the shape of your hand.</p>
+    </div>
+    <div class="feature">
+      <p class="feature-num">02</p>
+      <h3>Distance invariant features</h3>
+      <p>Landmarks are centred on the wrist and divided by hand size, so a letter
+         reads the same whether your hand is near the camera or far from it.</p>
+    </div>
+    <div class="feature">
+      <p class="feature-num">03</p>
+      <h3>Smoothed over time</h3>
+      <p>A letter is committed only once a majority of recent frames agree, so one
+         noisy frame never types the wrong character.</p>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <section style="padding:64px 0">
+    <h2 class="h-section" style="margin-bottom:8px">Measured performance</h2>
+    <p class="sub" style="max-width:560px; margin-bottom:40px">
+      Numbers from the held out test split. Live webcam accuracy is lower, so both
+      are reported rather than only the flattering one.
+    </p>
+
+    <div class="stat-grid">
+      <div>
+        <p class="stat-val">97.9%</p>
+        <p class="stat-key">Offline test accuracy</p>
+        <p class="stat-note">Held out split of the <strong>public image dataset</strong>,
+          1,143 samples. This figure is <strong>not a webcam measurement</strong>.</p>
+      </div>
+      <div>
+        <p class="stat-val">0.97</p>
+        <p class="stat-key">Macro F1</p>
+        <p class="stat-note">Every letter weighted equally, so the score is not
+          flattered by the better represented classes.</p>
+      </div>
+      <div>
+        <p class="stat-val">26</p>
+        <p class="stat-key">Classes</p>
+        <p class="stat-note">The static A to Z alphabet. Motion based signs are
+          treated as fixed poses here.</p>
+      </div>
+    </div>
+
+    <p class="hint" style="margin-top:36px; max-width:620px">
+      <strong>Known limitation.</strong>
+      M and N are often confused on a webcam. The thumb position that separates them
+      sits hidden behind the fingers in both signs, so the landmark model cannot see
+      it reliably.
+    </p>
+  </section>
+
+  <footer class="foot">
+    <span>Real-Time Sign Language Translator</span>
+    <span>Video is used for inference only and never stored.</span>
+  </footer>
+
+</div>
+</body>
+</html>

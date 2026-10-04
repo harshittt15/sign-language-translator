@@ -1,0 +1,66 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ---- Virtual environments ----
+venv/
+.venv/
+ENV/
+env/
+
+# ---- Testing / coverage ----
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# ---- Editors / IDE ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-*
+
+# ---- Secrets and local config ----
+.env
+.env.*
+*.pem
+*.key
+secrets.json
+credentials.json
+kaggle.json
+
+# ---- Raw / downloaded datasets ----
+# The Kaggle ASL Alphabet images are ~215 MB and are re-downloadable.
+# The extracted landmark features in data/processed/ ARE committed.
+data/raw/
+*.zip
+asl_alphabet_train/
+asl_alphabet_test/
+
+# ---- Collected webcam samples (personal data, not for publication) ----
+data/processed/webcam_samples.csv
+data/processed/webcam_samples_distribution.png
+
+# ---- Logs and temporary files ----
+*.log
+*.tmp
+*.temp
+/scratchpad/
+test_permission.txt
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+
+# NOTE: models/sign_language_model.pkl, models/feature_scaler.pkl,
+# models/metadata.json, models/hand_landmarker.task and
+# data/processed/asl_alphabet_landmarks.csv are intentionally COMMITTED so the
+# project is runnable after a clone.

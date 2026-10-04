@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Translator, Real-Time Sign Language Translator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="wrap wrap-wide">
+
+  <nav class="nav">
+    <a class="brand" href="/"><span class="brand-mark">S</span> Sign Language Translator</a>
+    <div class="nav-links">
+      <a href="/translator" aria-current="page">Translator</a>
+      <a href="/about">How it works</a>
+    </div>
+  </nav>
+
+  <main class="work">
+
+    <section>
+      <div class="stage">
+        <video id="video" playsinline muted autoplay></video>
+        <canvas id="overlay"></canvas>
+
+        <div class="crop-guide" id="cropGuide" hidden>
+          <span class="crop-tag">Keep your hand inside this area</span>
+        </div>
+
+        <!-- idle -->
+        <div class="stage-state" id="stateIdle">
+          <div class="state-icon" aria-hidden="true">●</div>
+          <h2>Camera is off</h2>
+          <p>Turn on your camera to start translating. Frames are analysed and then
+             discarded, and nothing is recorded.</p>
+          <button class="btn btn-primary" id="startBtn">Turn on camera</button>
+        </div>
+
+        <!-- requesting -->
+        <div class="stage-state" id="stateBusy" hidden>
+          <div class="spinner" aria-hidden="true"></div>
+          <h2>Waiting for permission</h2>
+          <p>Allow camera access in your browser to continue.</p>
+        </div>
+
+        <!-- error -->
+        <div class="stage-state" id="stateError" hidden>
+          <div class="state-icon is-error" aria-hidden="true">!</div>
+          <h2 id="errTitle">Camera unavailable</h2>
+          <p id="errText">Something stopped the camera from starting.</p>
+          <button class="btn btn-secondary" id="retryBtn">Try again</button>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <button class="btn btn-secondary" id="stopBtn" disabled>Stop camera</button>
+        <span class="spacer"></span>
+        <button class="btn btn-quiet" id="audioBtn" aria-pressed="false">Speak letters</button>
+        <button class="btn btn-quiet" id="clearBtn">Clear text</button>
+      </div>
+
+      <p class="fineprint">
+        Frames go to the local backend, are used for a single prediction, then
+        discarded in memory. No image is written to disk or logged.
+      </p>
+    </section>
+
+    <aside class="panel">
+
+      <div class="sign-card">
+        <p class="card-label">Current sign</p>
+        <div class="sign-glyph is-idle" id="glyph" aria-live="polite">&nbsp;</div>
+        <p class="sign-sub" id="rawLine"></p>
+
+        <div class="meter">
+          <div class="meter-row"><span>Confidence</span><b id="confText">0%</b></div>
+          <div class="meter-track"><div class="meter-fill" id="confFill"></div></div>
+        </div>
+      </div>
+
+      <div class="editor-card">
+        <div class="editor-head">
+          <p class="card-label">Translated text</p>
+          <span class="editor-count" id="charCount"></span>
+        </div>
+        <div class="editor" id="transcript" aria-live="polite"></div>
+      </div>
+
+      <div class="statusbar">
+        <span class="stat-item"><span class="dot" id="dotCam"></span><span id="txtCam">Camera off</span></span>
+        <span class="stat-item"><span class="dot" id="dotHand"></span><span id="txtHand">No hand</span></span>
+        <span class="stat-item"><span class="dot is-wait" id="dotApi"></span><span id="txtApi">Connecting</span></span>
+        <span class="stat-item" id="fpsItem" hidden><span id="txtFps"></span></span>
+      </div>
+
+      <p class="hint">
+        <strong>Heads up.</strong>
+        M and N are unreliable on a webcam, because the thumb that tells them apart is
+        hidden in both signs. Other letters are far more dependable.
+      </p>
+
+    </aside>
+  </main>
+
+  <footer class="foot">
+    <span>Real-Time Sign Language Translator</span>
+    <span>Video is used for inference only and never stored.</span>
+  </footer>
+
+</div>
+<script src="/static/js/translator.js"></script>
+</body>
+</html>

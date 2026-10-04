@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How it works, Real-Time Sign Language Translator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <nav class="nav">
+    <a class="brand" href="/"><span class="brand-mark">S</span> Sign Language Translator</a>
+    <div class="nav-links">
+      <a href="/translator">Translator</a>
+      <a href="/about" aria-current="page">How it works</a>
+    </div>
+  </nav>
+
+  <section class="prose">
+    <p class="eyebrow" style="margin-bottom:14px">Pipeline</p>
+    <h1 class="h-section" style="font-size:1.9rem; margin-bottom:10px">How it works</h1>
+    <p class="lede">
+      Every frame travels the same seven steps. The browser handles capture and
+      display, while all recognition happens in Python on the backend.
+    </p>
+
+    <div class="step-list">
+      <div class="step">
+        <span class="step-n">01</span>
+        <div>
+          <h3>Webcam capture</h3>
+          <p>The browser asks for camera access and draws frames to a hidden canvas.
+             Each frame is encoded as JPEG and posted to the backend. The browser
+             holds one frame at a time and the server discards it once the
+             prediction returns.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <span class="step-n">02</span>
+        <div>
+          <h3>Square crop</h3>
+          <p>The widescreen frame is cropped to a centred square by
+             <code>center_square_crop()</code>. This matters more than it sounds.
+             MediaPipe scales x by frame width and y by frame height, so a 16:9 frame
+             stretches the hand horizontally compared with the 200 by 200 training
+             images. Without this step every feature is displaced and accuracy
+             collapses.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <span class="step-n">03</span>
+        <div>
+          <h3>Hand landmarks</h3>
+          <p>The MediaPipe HandLandmarker locates 21 joints: the wrist, plus four
+             points along each finger. Each carries an x, y and z coordinate, so one
+             hand is described by 63 numbers.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <span class="step-n">04</span>
+        <div>
+          <h3>Normalization</h3>
+          <p>Raw coordinates depend on where the hand sits in frame. Each landmark is
+             re-centred on the wrist and divided by the wrist to middle knuckle
+             distance, which makes the features invariant to position and distance.
+             The same letter then produces the same numbers near or far.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <span class="step-n">05</span>
+        <div>
+          <h3>Random Forest classification</h3>
+          <p>The 63 features are standardised and passed to a 200 tree Random Forest
+             that votes across 26 letters. It returns the winning letter and the share
+             of trees that agreed, which becomes the confidence score.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <span class="step-n">06</span>
+        <div>
+          <h3>Temporal smoothing</h3>
+          <p>A held sign spans many frames, so a single frame is weak evidence.
+             Predictions enter a rolling window and a letter is committed only when at
+             least 4 of the last 5 frames agree and clear the confidence threshold.
+             Losing the hand for several frames resets the window, so reacquiring it
+             cannot inject a spurious letter.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <span class="step-n">07</span>
+        <div>
+          <h3>Text and audio output</h3>
+          <p>Committed letters append to the transcript. With speech enabled, each new
+             letter is read aloud using the browser's own speech synthesis.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <section class="prose">
+    <h2 class="h-section" style="margin:44px 0 10px">Model information</h2>
+    <p class="sub" style="margin-bottom:38px">
+      What the classifier is, how it was measured, and where it falls short.
+    </p>
+
+    <div class="stat-grid">
+      <div>
+        <p class="stat-val">97.9%</p>
+        <p class="stat-key">Offline test accuracy</p>
+        <p class="stat-note">Held out split of the public ASL Alphabet image dataset,
+          1,143 samples never seen in training. This is a
+          <strong>dataset result and not a webcam result</strong>. Live accuracy
+          is lower.</p>
+      </div>
+      <div>
+        <p class="stat-val">0.97</p>
+        <p class="stat-key">Macro F1</p>
+        <p class="stat-note">Each letter weighted equally, so weak classes are not
+          hidden behind strong ones.</p>
+      </div>
+      <div>
+        <p class="stat-val">26</p>
+        <p class="stat-key">Classes, 63 features</p>
+        <p class="stat-note">A to Z, each from 21 landmarks by 3 coordinates, trained
+          on 5,712 samples extracted from the public dataset.</p>
+      </div>
+    </div>
+
+    <h2 class="h-section" style="margin:56px 0 4px; font-size:1.2rem">Limitations we know about</h2>
+    <div class="limits">
+      <div class="limit">
+        <h4>M and N confusion</h4>
+        <p>The two signs differ only by whether the thumb tucks under two fingers or
+           three, and the thumb is hidden in both. The landmark model infers its
+           position rather than seeing it, so the two letters sit very close together
+           in feature space. On a webcam, N is frequently read as M.</p>
+      </div>
+      <div class="limit">
+        <h4>Webcam against dataset</h4>
+        <p>The training images were captured under consistent lighting at a fixed
+           distance. Your camera, lighting and hand will differ, so expect noticeably
+           lower accuracy than the offline figure above.</p>
+      </div>
+      <div class="limit">
+        <h4>Detection depends on hand size</h4>
+        <p>MediaPipe needs the hand to occupy a reasonable share of the frame. If
+           letters stop registering, move closer to the camera.</p>
+      </div>
+      <div class="limit">
+        <h4>Static letters only</h4>
+        <p>J and Z involve motion in real ASL, but here they are treated as fixed
+           poses. Words and continuous signing are out of scope.</p>
+      </div>
+    </div>
+
+    <div class="tags">
+      <span class="tag">MediaPipe HandLandmarker</span>
+      <span class="tag">scikit-learn RandomForest, 200 trees</span>
+      <span class="tag">63 normalized features</span>
+      <span class="tag">FastAPI</span>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <span>Real-Time Sign Language Translator</span>
+    <span>Video is used for inference only and never stored.</span>
+  </footer>
+
+</div>
+</body>
+</html>
