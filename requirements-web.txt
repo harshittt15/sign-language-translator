@@ -18,4 +18,7 @@ python-multipart>=0.0.9      # FastAPI needs this to declare the /predict form r
 scikit-learn==1.7.2
 numpy>=2.0,<3
 joblib>=1.3.0
-pandas>=2.0.0                # imported at module scope by model.py
+
+# pandas is deliberately absent. model.py imports it only inside the training
+# functions, and scikit-learn imports it opportunistically when present. The
+# full API was verified to serve correctly in an environment without it.

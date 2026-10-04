@@ -5,7 +5,6 @@ Uses Random Forest classifier trained on hand landmark data
 
 import os
 import numpy as np
-import pandas as pd
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
@@ -62,6 +61,8 @@ class SignLanguageModel:
         Returns:
             Tuple of (X, y) where X is features and y is labels
         """
+        import pandas as pd      # training only; keeps it out of the web runtime
+
         csv_path = os.path.join(data_dir, DATASET_FILENAME)
         if not os.path.exists(csv_path):
             raise FileNotFoundError(f"Dataset not found: {csv_path}")
@@ -228,6 +229,8 @@ class SignLanguageModel:
         print(header)
         for name, row in zip(target_names, cm):
             print(f"{name:>3} " + " ".join(f"{v:>3}" for v in row))
+
+        import pandas as pd      # training only; keeps it out of the web runtime
 
         os.makedirs(config.MODELS_DIR, exist_ok=True)
         cm_path = os.path.join(config.MODELS_DIR, "confusion_matrix.csv")
