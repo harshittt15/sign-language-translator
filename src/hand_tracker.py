@@ -1,7 +1,10 @@
 """
-Hand tracking module using MediaPipe
-Extracts 21 landmark points from hand gestures
-Compatible with MediaPipe 1.0.1+
+Hand tracking module using the MediaPipe Tasks API.
+
+Extracts 21 hand landmarks per hand (x, y, z each, so 63 values) with
+HandLandmarker, and normalizes them for the Random Forest classifier.
+
+Developed against MediaPipe 0.10.35.
 """
 
 import cv2

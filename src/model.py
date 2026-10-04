@@ -20,7 +20,7 @@ LABEL_COLUMN = "label"
 
 
 class SignLanguageModel:
-    """Neural network model for sign language classification"""
+    """Random Forest classifier for ASL alphabet signs (26 classes)"""
 
     def __init__(self):
         """Initialize model"""
